@@ -58,12 +58,13 @@
 
             // Send chat messages
             chatInput.addEventListener('input', () => {
+                console.log("chatInput.addEventListener('input', () => {...");
                 dataChannel.send(chatInput.value);
             });
         }
 
         async function startSignaling() {
-            socket = new WebSocket('ws://your-signaling-server-url'); // Replace with your signaling server URL
+            socket = new WebSocket('wss://wrtcexperiment.azurewebsites.net/'); // Replace with your signaling server URL
             socket.onopen = () => {
                 console.log('WebSocket connected');
             };
