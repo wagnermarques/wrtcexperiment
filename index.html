@@ -20,12 +20,14 @@
         const chatInput = document.getElementById('chatInput');
         let localStream;
         let peerConnection;
+        let socket;
 
         async function startCall() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localVideo.srcObject = localStream;
                 createPeerConnection();
+                startSignaling();
             } catch (error) {
                 console.error('Error accessing media devices:', error);
             }
@@ -43,6 +45,7 @@
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
                     // Send ICE candidate to remote peer (via signaling server)
+                    sendMessage({ type: 'candidate', candidate: event.candidate });
                 }
             };
 
@@ -59,13 +62,37 @@
             });
         }
 
-        function handleIncomingICECandidate(candidate) {
-            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        async function startSignaling() {
+            socket = new WebSocket('ws://your-signaling-server-url'); // Replace with your signaling server URL
+            socket.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            socket.onmessage = async event => {
+                const message = JSON.parse(event.data);
+                if (message.type === 'offer') {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    sendMessage({ type: 'answer', answer: answer });
+                } else if (message.type === 'answer') {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message));
+                } else if (message.type === 'candidate') {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                }
+            };
+        }
+
+        function sendMessage(message) {
+            socket.send(JSON.stringify(message));
         }
 
         function endCall() {
             localStream.getTracks().forEach(track => track.stop());
             peerConnection.close();
+            if (socket) {
+                socket.close();
+            }
         }
     </script>
 </body>
